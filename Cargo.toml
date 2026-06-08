@@ -1,0 +1,90 @@
+[package]
+name = "rust_ble_vesc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+vesc = "0.4.0"
+
+cortex-m = { version = "0.7.6" }
+cortex-m-rt = "0.7.0"
+defmt = "1"
+defmt-rtt = "1"
+panic-probe = { version = "1", features = ["print-defmt"] }
+embedded-io-async = { version = "0.6" }
+heapless = "0.9.3"
+
+embassy-sync = { version = "0.7", features = ["defmt"] }
+embassy-time = { version = "0.5.1", features = [
+    "defmt",
+    "defmt-timestamp-uptime",
+] }
+embassy-executor = { version = "0.9", features = [
+    "arch-cortex-m",
+    "executor-thread",
+    "executor-interrupt",
+    "defmt",
+] }
+embassy-nrf = { version = "0.9.0", features = [
+    "defmt",
+    "nrf52840",
+    "time-driver-rtc1",
+    "gpiote",
+    "time",
+    "unstable-pac",
+    "rt",
+    "nfc-pins-as-gpio"
+] }
+embassy-futures = { version = "0.1.2", features = ["defmt"] }
+
+nrf-sdc = { version = "0.4", default-features = false, features = [
+    "defmt",
+    "central",
+    "peripheral",
+    "nrf52840",
+] }
+nrf-mpsl = { version = "0.3", default-features = false, features = [
+    "defmt",
+     "critical-section-impl",
+] }
+static_cell = "2"
+rand = { version = "0.8.5", default-features = false }
+rand_core = { version = "0.6"}
+rand_chacha = { version = "0.3", default-features = false }
+assign-resources = "0.5.0"
+
+bt-hci = { version = "0.8", default-features = false, features = ["defmt"] }
+trouble-host = { version = "0.6", default-features = false, features = [
+    "central",
+    "peripheral",
+    "gatt",
+    "derive",
+    "scan",
+    "default-packet-pool",
+    "security",
+] }
+
+# Used by ble security
+embedded-storage-async = { version = "0.4.1" }
+sequential-storage = { version = "5.0.0" }
+
+[patch.crates-io]
+nrf-sdc = { git = "https://github.com/alexmoon/nrf-sdc.git", rev = "df7e3b4f363275e2c9ad42005758cf3eb8a798e0"}
+nrf-mpsl = { git = "https://github.com/alexmoon/nrf-sdc.git", rev = "df7e3b4f363275e2c9ad42005758cf3eb8a798e0"}
+
+[profile.dev]
+codegen-units = 1
+debug = 2
+debug-assertions = true # <-
+incremental = false
+opt-level = 3           # <-
+overflow-checks = true  # <-
+
+[profile.release]
+codegen-units = 1
+debug = 2
+debug-assertions = false # <-
+incremental = false
+lto = 'fat'
+opt-level = 3            # <-
+overflow-checks = false  # <-
