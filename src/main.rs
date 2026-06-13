@@ -82,15 +82,27 @@ async fn main(spawner: Spawner) {
     let mut vesc_rx_size = 0usize;
 
     loop {
-        u.write(&vesc_tx_buf[..vesc_tx_size]).await.unwrap();
+        // u.write(&vesc_tx_buf[..vesc_tx_size]).await.unwrap();
+        // COMM_PING_CAN
+        // u.write(&[2, 1, 62, 215, 157, 3]).await.unwrap();
+        // COMM_GET_VALUES_SETUP
+        // u.write(&[2, 1, 47, 213, 141, 3]).await.unwrap();
+        // COMM_GET_IMU_DATA
+        // u.write(&[2, 3, 65, 0, 2, 10, 223, 3]).await.unwrap();
+        // COMM_GET_MCCONF
+        u.write(&[2, 1, 14, 225, 206, 3]).await.unwrap();
+        // COMM_GET_APPCONF
+        // u.write(&[2, 1, 17, 2, 16, 3]).await.unwrap();
         let mut response_received = false;
 
         let read_response = async {
             loop {
                 vesc_rx_size = u.read(&mut vesc_rx_buf).await.unwrap();
+                // info!("Read {:?}", vesc_rx_buf[..vesc_rx_size]);
                 vesc_decoder.feed(&vesc_rx_buf[..vesc_rx_size]).unwrap();
-                for reply in vesc_decoder.by_ref() {
+                while let Some((reply, raw_data)) = vesc_decoder.next_item() {
                     info!("Reply: {:?}", defmt::Debug2Format(&reply));
+                    info!("Raw data: {:?}", raw_data);
                     response_received = true;
                 }
                 if response_received {

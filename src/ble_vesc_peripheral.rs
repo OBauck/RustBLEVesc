@@ -1,4 +1,4 @@
-use defmt::{error, info, warn};
+use defmt::{debug, error, info, warn};
 use embassy_futures::join::join;
 use embassy_futures::select::select;
 use rand_core::{CryptoRng, RngCore};
@@ -10,8 +10,8 @@ const CONNECTIONS_MAX: usize = 1;
 /// Max number of L2CAP channels.
 const L2CAP_CHANNELS_MAX: usize = 4; // Signal + att
 
-const NUS_BUFFER_SIZE_TX: usize = 10;
-const NUS_BUFFER_SIZE_RX: usize = 244;
+const NUS_BUFFER_SIZE_TX: usize = 20;
+const NUS_BUFFER_SIZE_RX: usize = 20;
 
 // GATT Server definition
 #[gatt_server]
@@ -75,7 +75,7 @@ pub async fn run<C, RNG, W, R>(
 
     let _ = join(ble_task(runner), async {
         loop {
-            match advertise("NUS test", &mut peripheral, &server).await {
+            match advertise("VESC Rust", &mut peripheral, &server).await {
                 Ok(conn) => {
                     // set up tasks when the connection is established to a central, so they don't run when no one is connected.
                     let a = gatt_events_task(&server, &conn, &mut uart_writer);
@@ -188,20 +188,26 @@ async fn advertise<'values, 'server, C: Controller>(
     server: &'server Server<'values>,
 ) -> Result<GattConnection<'values, 'server, DefaultPacketPool>, BleHostError<C::Error>> {
     let mut advertiser_data = [0; 31];
-    let len = AdStructure::encode_slice(
+    let adv_len = AdStructure::encode_slice(
         &[
             AdStructure::Flags(LE_GENERAL_DISCOVERABLE | BR_EDR_NOT_SUPPORTED),
             AdStructure::ServiceUuids128(&[NUS_SERVICE_UUID]),
-            AdStructure::CompleteLocalName(name.as_bytes()),
         ],
         &mut advertiser_data[..],
     )?;
+
+    let mut scan_data = [0; 31];
+    let scan_len = AdStructure::encode_slice(
+        &[AdStructure::CompleteLocalName(name.as_bytes())],
+        &mut scan_data[..],
+    )?;
+    info!("adv data set");
     let advertiser = peripheral
         .advertise(
             &Default::default(),
             Advertisement::ConnectableScannableUndirected {
-                adv_data: &advertiser_data[..len],
-                scan_data: &[],
+                adv_data: &advertiser_data[..adv_len],
+                scan_data: &scan_data[..scan_len],
             },
         )
         .await?;
@@ -224,7 +230,7 @@ async fn custom_task<C, P, R>(
     R: embedded_io_async::BufRead,
 {
     let nus_tx = &server.nordic_uart_service.tx;
-    let mut send_data = false;
+    let mut vesc_decoder = vesc::Decoder::default();
     let mut data: heapless::Vec<u8, NUS_BUFFER_SIZE_TX> = heapless::Vec::new();
 
     // TODO: Flush uart rx buffer?
@@ -233,43 +239,31 @@ async fn custom_task<C, P, R>(
         match uart_reader.fill_buf().await {
             Err(err) => warn!("Unable to read from uart: {:?}", defmt::Debug2Format(&err)),
             Ok(uart_data) => {
-                let mut byte_count = 0;
+                match vesc_decoder.feed(uart_data) {
+                    Ok(count) => uart_reader.consume(count),
+                    Err(err) => error!("Vesc decoder feed error: {:?}", defmt::Debug2Format(&err)),
+                }
 
-                for byte in uart_data {
-                    if let Err(err) = data.push(*byte) {
-                        error!(
-                            "Unable to push data to BLE buffer! {:?}",
-                            defmt::Debug2Format(&err)
-                        );
-                        send_data = true;
-                        break;
-                    }
-                    byte_count += 1;
+                while let Some((reply, raw_data)) = vesc_decoder.next_item() {
+                    debug!("Reply: {:?}", defmt::Debug2Format(&reply));
+                    debug!("raw data size: {}", raw_data.len());
+                    for chunk in raw_data.chunks(NUS_BUFFER_SIZE_TX) {
+                        match data.extend_from_slice(chunk) {
+                            Err(_) => error!("No space left in data vector"),
+                            Ok(()) => {
+                                if let Err(err) = nus_tx.notify(conn, &data).await {
+                                    error!(
+                                        "[custom_task] error notifying connection: {:?}",
+                                        defmt::Debug2Format(&err)
+                                    );
+                                };
+                            }
+                        }
 
-                    if data.is_full() {
-                        info!("BLE buffer full! Sending data");
-                        send_data = true;
-                        break;
-                    }
-                    if *byte == b'\r' || *byte == b'\n' {
-                        info!("Newline! Sending data");
-                        send_data = true;
-                        break;
+                        data.clear();
                     }
                 }
-                uart_reader.consume(byte_count);
             }
-        }
-        if send_data {
-            if let Err(err) = nus_tx.notify(conn, &data).await {
-                error!(
-                    "[custom_task] error notifying connection: {:?}",
-                    defmt::Debug2Format(&err)
-                );
-                break;
-            };
-            send_data = false;
-            data.clear();
         }
     }
 }

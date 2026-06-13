@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-vesc = "0.4.0"
+vesc = {version = "0.4.0", features = ["defmt"]}
 
 cortex-m = { version = "0.7.6" }
 cortex-m-rt = "0.7.0"
@@ -71,6 +71,7 @@ sequential-storage = { version = "5.0.0" }
 [patch.crates-io]
 nrf-sdc = { git = "https://github.com/alexmoon/nrf-sdc.git", rev = "df7e3b4f363275e2c9ad42005758cf3eb8a798e0"}
 nrf-mpsl = { git = "https://github.com/alexmoon/nrf-sdc.git", rev = "df7e3b4f363275e2c9ad42005758cf3eb8a798e0"}
+vesc = {git = "https://github.com/OBauck/vesc-rs.git", rev = "dd44d2d026861fd677a1c77d953fc9c94f737791"}
 
 [profile.dev]
 codegen-units = 1

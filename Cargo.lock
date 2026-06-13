@@ -1539,11 +1539,11 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 [[package]]
 name = "vesc"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a99174b41aaf294386f86926207e010e363c7043e95521e3f49576759f0fa65"
+source = "git+https://github.com/OBauck/vesc-rs.git?rev=dd44d2d026861fd677a1c77d953fc9c94f737791#dd44d2d026861fd677a1c77d953fc9c94f737791"
 dependencies = [
  "bitflags 2.13.0",
  "crc",
+ "defmt 1.1.0",
  "thiserror",
 ]
 
